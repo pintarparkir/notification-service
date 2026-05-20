@@ -13,10 +13,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/farid/notification-service/internal/notification/consumer"
 	"github.com/farid/notification-service/internal/notification/model"
+	"github.com/farid/notification-service/internal/notification/usecase"
 
 	"github.com/farid/notification-service/pkg/configs"
 	"github.com/farid/notification-service/pkg/grpcclient"
@@ -38,9 +38,9 @@ func main() {
 	defer func() { _ = otel.EndAPM() }()
 
 	// ── user-service gRPC client ─────────────────────────────────────────────
-	dialCtx, dialCancel := context.WithTimeout(ctx, 10*time.Second)
-	conn, err := grpcclient.Dial(dialCtx, cfg.UserGrpcAddr)
-	dialCancel()
+	// Dial is lazy (no WithBlock) — actual TCP connection happens on first call,
+	// so notification-service can start regardless of user-service readiness.
+	conn, err := grpcclient.Dial(ctx, cfg.UserGrpcAddr)
 	if err != nil {
 		logger.Fatal(ctx, "user-service grpc dial failed",
 			map[string]interface{}{"addr": cfg.UserGrpcAddr, logger.ErrorKey: err.Error()})
@@ -72,7 +72,8 @@ func main() {
 	}
 	defer sub.Close()
 
-	disp := consumer.New(users, smsClient)
+	uc := usecase.New(users, smsClient)
+	disp := consumer.New(uc)
 
 	logger.Info(ctx, "consumer: subscribing", map[string]interface{}{
 		"queue":        cfg.RabbitQueue,
