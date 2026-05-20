@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,12 +36,16 @@ func main() {
 	defer stop()
 
 	otel := pkgOtel.NewOpenTelemetry(cfg.OTLPEndpoint, "notification", cfg.AppEnv)
-	defer func() { _ = otel.EndAPM() }()
+	defer func() {
+		if err := otel.EndAPM(); err != nil {
+			fmt.Fprintln(os.Stderr, "otel shutdown:", err)
+		}
+	}()
 
 	// ── user-service gRPC client ─────────────────────────────────────────────
 	// Dial is lazy (no WithBlock) — actual TCP connection happens on first call,
 	// so notification-service can start regardless of user-service readiness.
-	conn, err := grpcclient.Dial(ctx, cfg.UserGrpcAddr)
+	conn, err := grpcclient.Dial(cfg.UserGrpcAddr)
 	if err != nil {
 		logger.Fatal(ctx, "user-service grpc dial failed",
 			map[string]interface{}{"addr": cfg.UserGrpcAddr, logger.ErrorKey: err.Error()})
@@ -91,5 +96,7 @@ func main() {
 	// ── Graceful shutdown ────────────────────────────────────────────────────
 	<-ctx.Done()
 	logger.Info(context.Background(), "shutdown signal received", nil)
-	_ = logger.Sync()
+	if err := logger.Sync(); err != nil {
+		fmt.Fprintln(os.Stderr, "logger sync:", err)
+	}
 }
