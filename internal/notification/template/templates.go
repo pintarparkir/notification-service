@@ -42,8 +42,9 @@ func Render(routingKey string, ev model.Event) string {
 }
 
 // formatIDR adds thousand-separator dots (Indonesian convention).
-//   5000     → "5.000"
-//   1234567  → "1.234.567"
+//
+//	5000     → "5.000"
+//	1234567  → "1.234.567"
 func formatIDR(n int64) string {
 	if n < 0 {
 		return "-" + formatIDR(-n)

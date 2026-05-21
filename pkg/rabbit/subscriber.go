@@ -45,7 +45,8 @@ func NewSubscriber(amqpURL, exchange, queue string, routingKeys []string, opt Su
 
 	// Main topic exchange.
 	if err := ch.ExchangeDeclare(exchange, "topic", true, false, false, false, nil); err != nil {
-		_ = ch.Close(); _ = conn.Close()
+		_ = ch.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("exchange declare: %w", err)
 	}
 
@@ -54,32 +55,38 @@ func NewSubscriber(amqpURL, exchange, queue string, routingKeys []string, opt Su
 	if opt.DLQ != "" {
 		dlxName := exchange + ".dlx"
 		if err := ch.ExchangeDeclare(dlxName, "fanout", true, false, false, false, nil); err != nil {
-			_ = ch.Close(); _ = conn.Close()
+			_ = ch.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("dlx declare: %w", err)
 		}
 		if _, err := ch.QueueDeclare(opt.DLQ, true, false, false, false, nil); err != nil {
-			_ = ch.Close(); _ = conn.Close()
+			_ = ch.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("dlq declare: %w", err)
 		}
 		if err := ch.QueueBind(opt.DLQ, "", dlxName, false, nil); err != nil {
-			_ = ch.Close(); _ = conn.Close()
+			_ = ch.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("dlq bind: %w", err)
 		}
 		queueArgs = amqp.Table{"x-dead-letter-exchange": dlxName}
 	}
 
 	if _, err := ch.QueueDeclare(queue, true, false, false, false, queueArgs); err != nil {
-		_ = ch.Close(); _ = conn.Close()
+		_ = ch.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("queue declare: %w", err)
 	}
 	for _, key := range routingKeys {
 		if err := ch.QueueBind(queue, key, exchange, false, nil); err != nil {
-			_ = ch.Close(); _ = conn.Close()
+			_ = ch.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("queue bind %s: %w", key, err)
 		}
 	}
 	if err := ch.Qos(10, 0, false); err != nil {
-		_ = ch.Close(); _ = conn.Close()
+		_ = ch.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("qos: %w", err)
 	}
 	return &Subscriber{conn: conn, ch: ch, queue: queue}, nil
@@ -119,6 +126,10 @@ func (s *Subscriber) Consume(ctx context.Context, handler Handler) error {
 }
 
 func (s *Subscriber) Close() {
-	if s.ch != nil { _ = s.ch.Close() }
-	if s.conn != nil { _ = s.conn.Close() }
+	if s.ch != nil {
+		_ = s.ch.Close()
+	}
+	if s.conn != nil {
+		_ = s.conn.Close()
+	}
 }
