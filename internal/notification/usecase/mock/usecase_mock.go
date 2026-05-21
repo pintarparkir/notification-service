@@ -1,3 +1,4 @@
+// Package mockusecase provides mock implementations for testing.
 package mockusecase
 
 import (

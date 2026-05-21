@@ -33,10 +33,10 @@ func main() {
 
 	conn, err := amqp.Dial(cfg.RabbitURL)
 	must(err, "amqp dial")
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	ch, err := conn.Channel()
 	must(err, "channel")
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	switch cmd {
 	case "list":

@@ -1,3 +1,4 @@
+// Package mockgrpc provides mock gRPC client implementations for testing.
 package mockgrpc
 
 import (

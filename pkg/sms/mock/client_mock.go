@@ -1,3 +1,4 @@
+// Package mocksms provides mock SMS client for testing.
 package mocksms
 
 import (

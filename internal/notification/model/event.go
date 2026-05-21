@@ -1,3 +1,4 @@
+// Package model defines notification domain models and events.
 package model
 
 // Event is the common shape we extract from RabbitMQ payloads. Producers
@@ -6,6 +7,7 @@ package model
 // consumer can use to resolve who to text.
 type Event struct {
 	DriverID      string `json:"driver_id,omitempty"`
+	MSISDN        string `json:"msisdn,omitempty"`
 	ReservationID string `json:"reservation_id,omitempty"`
 	InvoiceID     string `json:"invoice_id,omitempty"`
 	SpotID        string `json:"spot_id,omitempty"`

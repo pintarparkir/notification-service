@@ -187,3 +187,53 @@ func TestHandlePaymentPaid_HappyPath(t *testing.T) {
 	users.AssertExpectations(t)
 	smsClient.AssertExpectations(t)
 }
+
+// ── MSISDN denormalization tests ──────────────────────────────────────────
+
+func TestNotify_UsesPayloadMSISDNWithoutUserLookup(t *testing.T) {
+	ctx := context.Background()
+	users := new(mockgrpc.MockUserClient)
+	smsClient := new(mocksms.MockSMSClient)
+	uc := newUC(users, smsClient)
+
+	ev := model.Event{
+		DriverID:      "drv-1",
+		ReservationID: "res-1",
+		SpotID:        "A-01",
+		MSISDN:        "+628111111111",
+	}
+
+	smsClient.On("Send", ctx, "+628111111111", mock.MatchedBy(func(body string) bool {
+		return strings.TrimSpace(body) != ""
+	})).Return(nil)
+
+	err := uc.HandleReservationConfirmed(ctx, ev)
+
+	require.NoError(t, err)
+	users.AssertNotCalled(t, "GetMSISDN")
+	smsClient.AssertExpectations(t)
+}
+
+func TestNotify_FallsBackToUserLookupWhenPayloadMSISDNMissing(t *testing.T) {
+	ctx := context.Background()
+	users := new(mockgrpc.MockUserClient)
+	smsClient := new(mocksms.MockSMSClient)
+	uc := newUC(users, smsClient)
+
+	ev := model.Event{
+		DriverID:      "drv-1",
+		ReservationID: "res-1",
+		SpotID:        "A-01",
+	}
+
+	users.On("GetMSISDN", ctx, "drv-1").Return("+628222222222", nil)
+	smsClient.On("Send", ctx, "+628222222222", mock.MatchedBy(func(body string) bool {
+		return strings.TrimSpace(body) != ""
+	})).Return(nil)
+
+	err := uc.HandleReservationConfirmed(ctx, ev)
+
+	require.NoError(t, err)
+	users.AssertExpectations(t)
+	smsClient.AssertExpectations(t)
+}

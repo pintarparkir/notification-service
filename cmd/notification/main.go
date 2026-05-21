@@ -50,7 +50,7 @@ func main() {
 		logger.Fatal(ctx, "user-service grpc dial failed",
 			map[string]interface{}{"addr": cfg.UserGrpcAddr, logger.ErrorKey: err.Error()})
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	users := grpcclient.NewUserClient(conn, cfg.UserGrpcTimeout)
 
 	// ── SMS client ───────────────────────────────────────────────────────────

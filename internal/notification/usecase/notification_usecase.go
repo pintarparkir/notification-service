@@ -1,3 +1,4 @@
+// Package usecase implements notification business logic.
 package usecase
 
 import (
@@ -29,12 +30,16 @@ func (u *NotificationUsecaseImpl) notify(ctx context.Context, ev model.Event, ro
 		return rabbit.ErrPermanent
 	}
 
-	msisdn, err := u.users.GetMSISDN(ctx, ev.DriverID)
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return rabbit.ErrPermanent
+	msisdn := strings.TrimSpace(ev.MSISDN)
+	if msisdn == "" {
+		var err error
+		msisdn, err = u.users.GetMSISDN(ctx, ev.DriverID)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return rabbit.ErrPermanent
+			}
+			return err
 		}
-		return err
 	}
 	if strings.TrimSpace(msisdn) == "" {
 		return rabbit.ErrPermanent
