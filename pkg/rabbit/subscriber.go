@@ -6,32 +6,23 @@ import (
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
-// ErrPermanent is the sentinel handlers return when a delivery should not be
-// retried. Subscriber translates it to NACK requeue=false; combined with a
-// queue-level dead-letter-exchange binding, the message lands in the DLQ.
 var ErrPermanent = errors.New("permanent (DLQ)")
 
-// Subscriber consumes from a durable queue bound to the topic exchange.
-// One Subscriber owns one queue; the caller maps routing keys → handlers.
 type Subscriber struct {
 	conn  *amqp.Connection
 	ch    *amqp.Channel
 	queue string
 }
 
-// SubscriberOptions configures NewSubscriber.
-//   - DLQ (optional): when set, the main queue is declared with
-//     x-dead-letter-exchange = "<exchange>.dlx", and a fan-out DLX +
-//     dead-letter queue named DLQ are declared/bound automatically.
-//     Messages NACKed with requeue=false land there.
 type SubscriberOptions struct {
-	DLQ string // dead-letter queue name; "" disables DLX wiring
+	DLQ string
 }
 
-// NewSubscriber dials AMQP, declares topology (exchange, queue, optional DLX/DLQ,
-// bindings), returns a subscriber ready to Consume.
 func NewSubscriber(amqpURL, exchange, queue string, routingKeys []string, opt SubscriberOptions) (*Subscriber, error) {
 	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
@@ -43,14 +34,12 @@ func NewSubscriber(amqpURL, exchange, queue string, routingKeys []string, opt Su
 		return nil, fmt.Errorf("amqp channel: %w", err)
 	}
 
-	// Main topic exchange.
 	if err := ch.ExchangeDeclare(exchange, "topic", true, false, false, false, nil); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
 		return nil, fmt.Errorf("exchange declare: %w", err)
 	}
 
-	// DLX/DLQ wiring (optional). DLX is a fan-out so any failure ends up in DLQ.
 	var queueArgs amqp.Table
 	if opt.DLQ != "" {
 		dlxName := exchange + ".dlx"
@@ -92,13 +81,8 @@ func NewSubscriber(amqpURL, exchange, queue string, routingKeys []string, opt Su
 	return &Subscriber{conn: conn, ch: ch, queue: queue}, nil
 }
 
-// Handler processes one delivery.
-//   - nil err            → ACK
-//   - errors.Is ErrPermanent → NACK requeue=false (→ DLQ if wired)
-//   - other err          → NACK requeue=true (transient retry)
 type Handler func(ctx context.Context, routingKey string, body []byte) error
 
-// Consume blocks until ctx is cancelled.
 func (s *Subscriber) Consume(ctx context.Context, handler Handler) error {
 	deliveries, err := s.ch.Consume(s.queue, "", false, false, false, false, nil)
 	if err != nil {
@@ -112,14 +96,25 @@ func (s *Subscriber) Consume(ctx context.Context, handler Handler) error {
 			if !ok {
 				return fmt.Errorf("delivery channel closed")
 			}
-			err := handler(ctx, d.RoutingKey, d.Body)
+			msgCtx := otel.GetTextMapPropagator().Extract(ctx, &amqpHeaderCarrier{d.Headers})
+			msgCtx, span := otel.Tracer("rabbit").Start(msgCtx, "consume "+d.RoutingKey,
+				trace.WithSpanKind(trace.SpanKindConsumer),
+			)
+
+			err := handler(msgCtx, d.RoutingKey, d.Body)
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
+			span.End()
+
 			switch {
 			case err == nil:
 				_ = d.Ack(false)
 			case errors.Is(err, ErrPermanent):
-				_ = d.Nack(false, false) // requeue=false → DLX → DLQ
+				_ = d.Nack(false, false)
 			default:
-				_ = d.Nack(false, true) // requeue=true → transient retry
+				_ = d.Nack(false, true)
 			}
 		}
 	}
