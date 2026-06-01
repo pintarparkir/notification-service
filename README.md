@@ -240,6 +240,120 @@ Replay DLQ messages only after fixing root cause. Poison messages with invalid s
 - **Consumer safety:** Permanent parsing/validation errors go to DLQ, transient downstream errors are retried.
 - **SMS provider:** Real SMS gateway credentials must come from Secret Manager.
 
+## Business Flow Logic
+
+### Notification Service: Event Consumer Flow
+
+Notification-service adalah **consumer-only** service yang menerima domain events dari RabbitMQ dan mengirim SMS ke driver.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant RMQ as RabbitMQ
+    participant Notif as Notification Service
+    participant Cache as MSISDN Cache<br/>(in-memory, 5min)
+    participant UserSvc as User Service
+    participant SMS as SMS Gateway<br/>(Telkomsel/Stub)
+    participant DLQ as Dead Letter Queue
+    
+    Note over RMQ,DLQ: Consume Event: reservation.confirmed.v1
+    
+    RMQ-->Notif: DELIVER reservation.confirmed.v1<br/>{reservation_id, driver_id, spot_id}
+    activate Notif
+    
+    Notif->>Notif: Parse event payload
+    
+    alt Parse error (bad JSON)
+        Notif->>RMQ: ACK + Move to DLQ
+        Note right of Notif: Permanent error, no retry
+        deactivate Notif
+        return
+    end
+    
+    %% MSISDN resolution
+    Notif->>Cache: GET driver_id
+    
+    alt Cache hit
+        Cache-->>Notif: phone_e164
+    else Cache miss
+        Notif->>UserSvc: gRPC GetUserById(driver_id)
+        activate UserSvc
+        
+        alt User found
+            UserSvc-->>Notif: phone_e164
+            Notif->>Cache: SET driver_id → phone_e164 TTL=5min
+        else User not found
+            UserSvc-->>Notif: NOT_FOUND
+            Notif->>RMQ: ACK + Move to DLQ
+            Note right of Notif: Permanent error
+            deactivate UserSvc
+            deactivate Notif
+            return
+        end
+        
+        deactivate UserSvc
+    end
+    
+    %% Render template
+    Notif->>Notif: Render template:<br/>"Reservasi spot {spot_id} dikonfirmasi<br/>sampai {hold_end}"
+    
+    %% Send SMS
+    Notif->>SMS: POST /send {to: phone_e164, message: ...}
+    activate SMS
+    
+    alt SMS 2xx success
+        SMS-->>Notif: 200 OK {message_id}
+        Notif->>RMQ: ACK
+        Note right of Notif: Message processed successfully
+    else SMS 4xx (client error)
+        SMS-->>Notif: 400 Bad Request
+        Notif->>RMQ: ACK + Move to DLQ
+        Note right of Notif: Permanent error (invalid phone)
+    else SMS 5xx (server error)
+        SMS-->>Notif: 500 Internal Error
+        Notif->>RMQ: NACK + REQUEUE
+        Note right of Notif: Transient error, will retry
+    end
+    
+    deactivate SMS
+    deactivate Notif
+    
+    Note over RMQ,DLQ: DLQ Replay (Manual Tool)
+    
+    participant CLI as DLQ CLI Tool
+    
+    CLI->>RMQ: LIST messages in notification.events.dlq
+    RMQ-->>CLI: [msg1, msg2, ...]
+    
+    CLI->>RMQ: REPLAY msg1 to notification.events
+    Note right of CLI: After fixing root cause
+```
+
+### Event → SMS Template Mapping
+
+| Event | SMS Template (Indonesian) |
+|-------|---------------------------|
+| `reservation.confirmed.v1` | "Reservasi spot {spot_id} dikonfirmasi. Check-in sebelum {hold_end}." |
+| `reservation.cancelled.v1` | "Reservasi Anda telah dibatalkan." |
+| `reservation.expired.v1` | "Reservasi expired (no-show). Fee Rp {fee} dikenakan." |
+| `billing.invoice.closed.v1` | "Invoice #{id} total Rp {total}. Silakan bayar via mini-app." |
+| `payment.paid.v1` | "Pembayaran berhasil Rp {amount}. Terima kasih!" |
+| `payment.failed.v1` | "Pembayaran gagal: {reason}. Silakan coba lagi." |
+
+### Error Classification
+
+| Error Type | Action | Rationale |
+|------------|--------|-----------|
+| JSON parse fail | ACK → DLQ | Permanent, no remediation |
+| Unknown routing key | ACK → drop | Not our message |
+| Empty MSISDN | ACK → DLQ | Data issue, needs manual fix |
+| UserSvc NOT_FOUND | ACK → DLQ | Missing driver, needs investigation |
+| UserSvc timeout | NACK → requeue | Transient, will retry |
+| SMS gateway 4xx | ACK → DLQ | Invalid phone, permanent |
+| SMS gateway 5xx | NACK → requeue | Provider issue, transient |
+
+---
+
 ## Related Documentation
 
 - **Architecture Overview:** [`../docs/README.md`](../docs/README.md)
