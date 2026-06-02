@@ -16,13 +16,13 @@ type Event struct {
 
 // Routing keys we subscribe to.
 const (
-	EvtReservationConfirmed     = "reservation.confirmed.v1"
-	EvtReservationExpired       = "reservation.expired.v1"
-	EvtReservationCancelled     = "reservation.cancelled.v1"
-	EvtInvoiceClosed            = "billing.invoice.closed.v1"
-	EvtPaymentPaid              = "payment.paid.v1"
-	EvtPaymentSuccess           = "billing.payment.success.v1"
-	EvtPaymentFailed            = "billing.payment.failed.v1"
+	EvtReservationConfirmed = "reservation.confirmed.v1"
+	EvtReservationExpired   = "reservation.expired.v1"
+	EvtReservationCancelled = "reservation.cancelled.v1"
+	EvtInvoiceClosed        = "billing.invoice.closed.v1"
+	EvtPaymentPaid          = "payment.paid.v1"
+	EvtPaymentSuccess       = "billing.payment.success.v1"
+	EvtPaymentFailed        = "billing.payment.failed.v1"
 )
 
 // AllRoutingKeys is the binding list for the consumer queue.
