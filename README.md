@@ -1,10 +1,10 @@
 # notification-service
 
-[![Security](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=security_rating&token=66ea93348f4a130c2f9af61ca6938a8d5b9b4f9a)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
-[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=reliability_rating&token=66ea93348f4a130c2f9af61ca6938a8d5b9b4f9a)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
-[![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=sqale_rating&token=66ea93348f4a130c2f9af61ca6938a8d5b9b4f9a)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
-[![Duplications](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=duplicated_lines_density&token=66ea93348f4a130c2f9af61ca6938a8d5b9b4f9a)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=coverage&token=66ea93348f4a130c2f9af61ca6938a8d5b9b4f9a)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
+[![Security](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=security_rating&token=eae6e91b429896df48df6d80f36e535379449942)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
+[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=reliability_rating&token=eae6e91b429896df48df6d80f36e535379449942)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
+[![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=sqale_rating&token=eae6e91b429896df48df6d80f36e535379449942)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
+[![Duplications](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=duplicated_lines_density&token=eae6e91b429896df48df6d80f36e535379449942)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=pintarparkir_notification-service&metric=coverage&token=eae6e91b429896df48df6d80f36e535379449942)](https://sonarcloud.io/summary/new_code?id=pintarparkir_notification-service)
 
 **Cloud Run:** `https://notification-service-725nddkmwq-as.a.run.app`
 
