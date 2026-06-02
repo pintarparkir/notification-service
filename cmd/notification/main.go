@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/farid/notification-service/internal/notification/consumer"
 	"github.com/farid/notification-service/internal/notification/model"
@@ -46,11 +47,12 @@ func main() {
 	// ── HTTP health (Cloud Run requires a listening port) ────────────────
 	go func() {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"status":"ok"}`))
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
 		})
-		if err := http.ListenAndServe(":8080", mux); err != nil {
+		srv := &http.Server{Addr: ":8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+		if err := srv.ListenAndServe(); err != nil {
 			logger.Error(ctx, "health http failed", map[string]interface{}{logger.ErrorKey: err.Error()})
 		}
 	}()
