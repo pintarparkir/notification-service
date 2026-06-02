@@ -17,9 +17,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// NewOpenTelemetry initialises the global OTel TracerProvider and MeterProvider with OTLP/gRPC exporters.
-// In local/dev where collector is absent, exporter errors are non-fatal (log only).
 func NewOpenTelemetry(endpoint, appName, appEnv string) *OpenTelemetry {
+	if endpoint == "" {
+		log.Println("otel: OTLP_ENDPOINT not set, telemetry disabled")
+		return &OpenTelemetry{}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

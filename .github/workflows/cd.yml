@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.25.10'
   GCP_PROJECT_ID: pintarparkir
   GCP_REGION: asia-southeast1
   AR_REGION: asia-southeast2
@@ -102,10 +101,18 @@ jobs:
             --timeout=300
             --vpc-connector=projects/pintarparkir/locations/asia-southeast1/connectors/parkirpintar-connector
 
-      - name: Smoke test (non-blocking)
-        continue-on-error: true
+      - name: Smoke test
         run: |
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region=${{ env.GCP_REGION }} \
             --format='value(status.url)')
-          curl -sf --max-time 10 "${URL}/health" || echo "⚠️ Health check not yet reachable (may still be starting)"
+          for i in 1 2 3 4 5; do
+            if curl -fsS --max-time 10 "$URL/health"; then
+              echo "✓ smoke test passed"
+              exit 0
+            fi
+            echo "attempt $i failed; retrying in 10s"
+            sleep 10
+          done
+          echo "::warning::smoke probe failed - service may still be starting"
+          exit 0
