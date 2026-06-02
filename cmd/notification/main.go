@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -39,6 +40,18 @@ func main() {
 	defer func() {
 		if err := otel.EndAPM(); err != nil {
 			fmt.Fprintln(os.Stderr, "otel shutdown:", err)
+		}
+	}()
+
+	// ── HTTP health (Cloud Run requires a listening port) ────────────────
+	go func() {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"status":"ok"}`))
+		})
+		if err := http.ListenAndServe(":8080", mux); err != nil {
+			logger.Error(ctx, "health http failed", map[string]interface{}{logger.ErrorKey: err.Error()})
 		}
 	}()
 
